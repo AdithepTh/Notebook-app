@@ -29,11 +29,14 @@ input,select,textarea{width:100%;padding:13px;margin:5px 0;border-radius:14px;bo
 .seg3 button.on,.chip.on{background:var(--lav);color:#2d2b4a;border-color:var(--lav);font-weight:700}
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px}.chips.wrap{flex-wrap:wrap;overflow:visible}.chip{white-space:nowrap;padding:8px 14px;border-radius:99px;font-size:14px}
 .bg{position:fixed;inset:0;background:#0007;z-index:7}
-.sheet{position:fixed;left:0;right:0;bottom:0;max-height:92vh;overflow:auto;z-index:8;background:var(--card);border-radius:24px 24px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom));max-width:620px;margin:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:92vh;max-height:92dvh;z-index:8;background:var(--card);border-radius:24px 24px 0 0;max-width:620px;margin:auto;display:flex;flex-direction:column}
+.sh-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 10px;font-size:17px;border-bottom:1px solid var(--line)}
+.sh-body{overflow:auto;-webkit-overflow-scrolling:touch;padding:10px 16px calc(20px + env(safe-area-inset-bottom))}
+.x{width:42px;height:42px;border:0;border-radius:50%;background:var(--line);color:var(--tx);font-size:20px}
 .prev{background:#2b3240;border-radius:12px;padding:8px 12px;color:var(--peach);font-size:14px;margin:6px 0}
 .bar{height:7px;border-radius:4px;margin:2px 0}.nav2{display:flex;align-items:center;justify-content:space-between;margin:6px 0 10px}.nav2 button{background:var(--card);border:0;color:var(--tx);border-radius:12px;width:44px;height:44px;font-size:20px}
 table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--pink)}
-.lock{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px}.lock input{width:200px;text-align:center;font-size:28px;letter-spacing:8px}
+.lock{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px}.lock input{width:min(280px,80vw);text-align:center;font-size:22px;letter-spacing:2px}
 .toast{position:fixed;top:calc(12px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:var(--mint);color:#1f3a30;padding:8px 18px;border-radius:99px;font-weight:600;z-index:20}
 .upd{position:fixed;left:12px;right:96px;bottom:calc(20px + env(safe-area-inset-bottom));background:var(--lav);color:#2d2b4a;border-radius:16px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;z-index:9;font-weight:600}.upd button{border:0;border-radius:12px;padding:8px 14px;background:#2d2b4a;color:var(--tx);font:inherit}
 </style></head><body><div id="app"></div><script type="module" src="app.js"></script></body></html>

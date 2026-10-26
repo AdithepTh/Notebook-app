@@ -1,10 +1,10 @@
 // กฎคำนวณทั้งหมดอยู่ที่ไฟล์นี้ (ไม่ยุ่งกับหน้าจอ) เพื่อให้ทดสอบได้ — เงินเก็บเป็นสตางค์ (จำนวนเต็ม)
-export const APP_VERSION = '3.0.0'; // ต้องตรงกับชื่อแคชใน sw.js (มีเทสต์เช็ก)
+export const APP_VERSION = '3.2.0'; // ต้องตรงกับชื่อแคชใน sw.js (มีเทสต์เช็ก)
 export const TH_M = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 export const TH_S = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 export const TYPES = [['card','บัตร'],['card_credit','เครดิตคืน'],['transfer_cash','โอน/เงินสด'],['income','รายรับ']];
 export const DEFAULT_SETTINGS = { id:'main', cardCutoffDay:17, cardCutoffTime:'13:00', cardNoTimeRule:'next',
-  salaryDay:25, salaryAmount:0, salaryFrom:'', cashRule:'calendar', pinHash:null, lastBackupAt:null, warnDays:90, splitCount:2,
+  salaryDay:25, salaryAmount:0, salaryFrom:'', cashRule:'calendar', pinHash:null, lockFails:0, lockUntil:0, lastBackupAt:null, warnDays:90, splitCount:2,
   owners:['ส่วนตัว','ภายในบ้าน','ภรรยา','ลูก','ครอบครัว (ใช้ร่วมกัน)'],
   itemCats:['เครื่องใช้ไฟฟ้า','เฟอร์นิเจอร์/ของใช้บ้าน','ของเด็ก','ของเล่น/โมเดล','เสื้อผ้า/รองเท้า','ยานยนต์/จักรยาน','อุปกรณ์ไอที','ของใช้ส่วนตัว','ประกัน/กรมธรรม์','อื่นๆ'] };
 
@@ -106,7 +106,7 @@ export function yearSummary(list, y) {
 export function validateBackup(d) {
   if (!d || d.app !== 'mymoney') return 'ไฟล์นี้ไม่ใช่ไฟล์สำรองของแอปนี้';
   if (!d.settings || typeof d.settings !== 'object' || Array.isArray(d.settings)) return 'ส่วน settings ไม่ถูกต้อง';
-  const secs = { items: x => x.id && typeof x.name === 'string', places: x => x.id && typeof x.name === 'string' && ALL_PROVINCES.includes(x.province) && PLACE_TYPES.some(t => t[0] === x.type) };
+  const secs = { items: x => x.id && typeof x.name === 'string', places: x => x.id && typeof x.name === 'string' && PLACE_TYPES.some(t => t[0] === x.type) && (x.scope === 'abroad' ? typeof x.country === 'string' && x.country.trim() : ALL_PROVINCES.includes(x.province)) };
   for (const [k, ok] of Object.entries(secs)) {
     if (d[k] === undefined && k === 'places') continue;
     if (!Array.isArray(d[k])) return `ส่วน ${k} ต้องเป็น array`;
@@ -150,12 +150,43 @@ export const regionOf = p => Object.keys(PROVINCES).find(r => PROVINCES[r].inclu
 export const PLACE_TYPES = [['trip', '🧳 ทริป'], ['stay', '🏨 ที่พัก'], ['food', '🍜 ร้านอาหาร'], ['sight', '📍 ที่เที่ยว'], ['other', '📝 อื่นๆ']];
 export const PLACE_ICON = Object.fromEntries(PLACE_TYPES.map(([k, l]) => [k, l.split(' ')[0]]));
 export const visitedProvinces = places => new Set(places.map(p => p.province).filter(Boolean));
-export function filterPlaces(places, { province = '', type = '', minRating = 0, district = '', q = '' } = {}) {
+export function filterPlaces(places, { province = '', country = '', type = '', minRating = 0, district = '', q = '' } = {}) {
   const s = q.trim().toLowerCase();
-  return places.filter(p => (!province || p.province === province) && (!type || p.type === type) && (p.rating || 0) >= minRating && (!district || p.district === district) &&
-    (!s || [p.province, p.district, p.name, p.note, (p.tags || []).join(' ')].join(' ').toLowerCase().includes(s)))
+  return places.filter(p => (!province || p.province === province) && (!country || p.country === country) && (!type || p.type === type) && (p.rating || 0) >= minRating && (!district || p.district === district) &&
+    (!s || [p.province, p.country, p.district, p.name, p.note, (p.tags || []).join(' ')].join(' ').toLowerCase().includes(s)))
     .sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.date || '').localeCompare(a.date || ''));
 }
-// ร้านอาหารที่เคยไปใกล้ที่พักนี้: ผูกไว้กับที่พัก หรืออยู่อำเภอ/ย่านเดียวกัน (จังหวัดเดียวกัน) เรียงคะแนนสูงสุดก่อน
-export const nearbyFood = (places, stay) => filterPlaces(places, { province: stay.province, type: 'food' })
-  .filter(f => f.nearId === stay.id || (stay.district && f.district === stay.district && !f.nearId));
+// ร้านอาหารที่เคยไปใกล้ที่พักนี้: ผูกไว้กับที่พัก หรืออยู่อำเภอ/เมือง/ย่านเดียวกัน (จังหวัดหรือประเทศเดียวกัน) เรียงคะแนนสูงสุดก่อน
+export const nearbyFood = (places, stay) => filterPlaces(places, { type: 'food' })
+  .filter(f => (f.province || '') === (stay.province || '') && (f.country || '') === (stay.country || '') && (f.nearId === stay.id || (stay.district && f.district === stay.district && !f.nearId)));
+export const visitedCountries = places => new Set(places.filter(p => p.scope === 'abroad').map(p => p.country).filter(Boolean));
+// ชื่อช่องวันที่ตามประเภท: [วันเริ่ม, วันสิ้นสุด] (ว่าง = ไม่มีวันสิ้นสุด)
+export const PLACE_DATE_LABELS = { trip: ['วันเดินทาง', 'วันกลับ'], stay: ['วันเช็คอิน', 'วันเช็คเอาท์'], food: ['วันที่ไปกิน', ''], sight: ['วันที่ไป', ''], other: ['วันที่', ''] };
+export function placeRange(p) {
+  if (!p.date) return '';
+  if (!p.dateEnd || !PLACE_DATE_LABELS[p.type]?.[1]) return dateTH(p.date);
+  const n = daysBetween(p.date, p.dateEnd);
+  return `${dateTH(p.date)} – ${dateTH(p.dateEnd)}` + (n < 0 ? '' : p.type === 'stay' ? (n > 0 ? ` (${n} คืน)` : '') : ` (${n + 1} วัน)`);
+}
+export const COUNTRY_SUGGEST = ['ญี่ปุ่น', 'เกาหลีใต้', 'จีน', 'ฮ่องกง', 'มาเก๊า', 'ไต้หวัน', 'สิงคโปร์', 'มาเลเซีย', 'เวียดนาม', 'ลาว', 'กัมพูชา', 'เมียนมา', 'อินโดนีเซีย', 'ฟิลิปปินส์', 'บรูไน', 'อินเดีย', 'เนปาล', 'ภูฏาน', 'ศรีลังกา', 'มัลดีฟส์', 'ตุรกี', 'สหรัฐอาหรับเอมิเรตส์', 'อียิปต์', 'อังกฤษ', 'ฝรั่งเศส', 'เยอรมนี', 'อิตาลี', 'สเปน', 'สวิตเซอร์แลนด์', 'เนเธอร์แลนด์', 'ออสเตรีย', 'สหรัฐอเมริกา', 'แคนาดา', 'ออสเตรเลีย', 'นิวซีแลนด์'];
+
+// ---------- รหัสผ่านล็อกแอป ----------
+// รหัสนี้ล็อกหน้าจอแอป (ไม่ได้เข้ารหัสข้อมูล) เก็บเป็นแฮช PBKDF2-SHA256 + salt สุ่ม; รหัสรุ่นเก่า (SHA-256 ล้วน) ยังตรวจผ่านได้
+export const PASS_MIN = 4, PASS_MAX = 15;
+export const validatePasscode = p => typeof p !== 'string' || p.length < PASS_MIN || p.length > PASS_MAX ? `รหัสต้องยาว ${PASS_MIN}–${PASS_MAX} ตัวอักษร`
+  : p !== p.trim() ? 'ห้ามขึ้นต้นหรือลงท้ายด้วยช่องว่าง' : '';
+export const lockDelay = fails => fails < 5 ? 0 : Math.min(3600, 30 * 2 ** (fails - 5)); // วินาที: ผิด 5 ครั้งแรกไม่รอ แล้ว 30, 60, 120 ... สูงสุด 1 ชม.
+const b64 = u8 => btoa(String.fromCharCode(...u8)), unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+export async function hashPasscode(pass, salt, iter = 600000) {
+  const s = salt || b64(crypto.getRandomValues(new Uint8Array(16)));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: unb64(s), iterations: iter }, key, 256);
+  return { v: 2, salt: s, iter, hash: b64(new Uint8Array(bits)) };
+}
+export async function verifyPasscode(pass, rec) {
+  if (!rec) return false;
+  if (typeof rec === 'string') { // รุ่นเก่า
+    const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('mm1:' + pass)))].map(b => b.toString(16).padStart(2, '0')).join('');
+    return h === rec; }
+  return (await hashPasscode(pass, rec.salt, rec.iter)).hash === rec.hash;
+}
